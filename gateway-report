@@ -1,0 +1,73 @@
+#!/bin/sh
+
+# !!! REQUIREMENTS AND DEPENDENCIES !!!
+# 
+# `pocket-core`
+# User must have an installation of the pocket-core repository locally and an 
+# accessible binary called `pocket`
+#
+# Download pocket-core here: https://github.com/pokt-network/pocket-core
+# Create the binary named `pocket` and add it to your path per the README.md
+#
+# `jq`
+# Install jq with your package manager of choice:
+# sudo apt install jq
+# brew install jq
+# etc...
+
+# !!! WHAT THIS SCRIPT DOES !!!
+# This script is designed to grab the list of applications that signed for 
+# relays from the specified blocks, and generate a CSV file
+# 
+# The output of this script can be used to invoice the various gateways based 
+# on transaction consumption per (gigastakes) application
+
+# !!! ARGUMENTS AND PARAMETERS !!!
+# In order to use this script, the user must specify the START and FINAL blocks
+# on which to query.
+# 
+# In addition, user must specify a valid RPC endpoint for the POKT Blockchain. 
+# Need one? Mint one: https://portal.grove.city
+# 
+# From there, the script will generate a CSV with the following information:
+# Application Address, Application Public Key, Sum total relays claimed from 
+# all of the blocks in the set defined
+
+# if the first argument is `-h` or `-help` Read out the help statement for 
+# Gateway-Report.sh
+if [ -z $1 ] || [ $1 = "-h" ] || [ $1 = "-help" ]
+then 
+	echo "Gateway Report Tool"
+	echo "Generates a report of Gigastakes Applications and their cumulative relays across the specified blocks.\n"
+	echo "USAGE: \n\tgateway-report [<start block>] [<end block>] [<endpoint URL>]"
+	exit 1
+fi 
+
+# Transfer the user input into more readable variables
+STARTBLOCK=$1
+FINALBLOCK=$2
+CURRENTBLOCK=$STARTBLOCK
+ENDPOINTURL=$3
+JSONPAYLOAD="foo"
+
+echo "Querying all blocks in range: $STARTBLOCK - $FINALBLOCK ...\n\n"
+
+# Query the chain to generate a JSON payload, and pull out each relay
+while [ $CURRENTBLOCK -le $FINALBLOCK ] 
+do 
+	# Query the chain, format the result, then pull the data out of the JSON structure
+	echo "\nQuerying block: $CURRENTBLOCK ...\n"
+	# JSONPAYLOAD=$(pocket query block-txs $CURRENTBLOCK --remoteCLIURL $ENDPOINTURL ) 
+	# JSONPAYLOAD=$(pocket query block-txs $CURRENTBLOCK --remoteCLIURL $ENDPOINTURL | jq -r '.txs[] | .stdTx.msg.value.leaf.value.aat.app_pub_key')
+	JSONPAYLOAD=$(pocket query block-txs $CURRENTBLOCK --remoteCLIURL $ENDPOINTURL | sed '1,2d' | jq -r '.txs[] | .stdTx.msg.value.leaf.value.aat.app_pub_key')
+	
+	# TODO : Finish the collecting of all app_pub_keys and figure out how to get the relay #s in each claim
+
+	# Move to the next block
+	CURRENTBLOCK=$(( $CURRENTBLOCK + 1 ))
+done
+
+# Report out all app_pub_key
+echo $JSONPAYLOAD
+
+exit 1
